@@ -1,0 +1,44 @@
+# .github/workflows/ci.yml — quality gates for React projects
+# Requires package.json scripts: "lint", and optionally "typecheck" and "test".
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      # X6: install exactly what the lockfile says
+      - run: npm ci
+
+      # S1-S11, R2, R14, X3-X5, X7: ESLint with boundaries + react rules
+      - run: npm run lint -- --max-warnings=0
+
+      - run: npm run typecheck --if-present
+
+      - run: npm test --if-present
+
+      # X1: fail on high/critical vulnerabilities in production dependencies
+      - run: npm audit --audit-level=high --omit=dev
+
+      # X2: fail if a client-exposed env var looks like a secret
+      - name: Check client env vars for secrets
+        run: |
+          if grep -rEn '^(VITE_|NEXT_PUBLIC_|REACT_APP_)[A-Z0-9_]*(SECRET|PRIVATE|PASSWORD|TOKEN|API_KEY)[A-Z0-9_]*=' \
+               --include='.env*' . ; then
+            echo "::error::Secret-like value in a client-exposed env var (X2)"
+            exit 1
+          fi

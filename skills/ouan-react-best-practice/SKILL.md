@@ -1,6 +1,6 @@
 ---
 name: ouan-react-best-practice
-description: Team React standard that merges our feature-based folder structure, DO/DON'T rules (codes S1-S11, R1-R14) and Vercel's 70 React/Next.js performance rules. Use whenever writing, reviewing, refactoring or scaffolding React, Next.js or Vite code — new components, pages, hooks, features, folder layout, imports, data fetching, bundle size, re-renders, or code review against team rules — even if the user does not mention "best practices". Also use for Thai requests such as "เขียน component", "รีวิวโค้ด React", "จัดโครงสร้างโปรเจกต์", "สร้าง feature ใหม่".
+description: Team React standard that merges our feature-based folder structure, DO/DON'T rules (codes S1-S11, R1-R14, security X1-X8), a tested ESLint + CI setup, and Vercel's 70 React/Next.js performance rules. Use whenever writing, reviewing, refactoring or scaffolding React, Next.js or Vite code — new components, pages, hooks, features, folder layout, imports, data fetching, bundle size, re-renders, ESLint setup, npm audit, XSS or secrets in env, or code review against team rules — even if the user does not mention "best practices". Also use for Thai requests such as "เขียน component", "รีวิวโค้ด React", "จัดโครงสร้างโปรเจกต์", "สร้าง feature ใหม่", "ตั้ง lint", "เช็คช่องโหว่".
 license: MIT (Vercel rules) + team docs
 metadata:
   version: "1.0.0"
@@ -11,7 +11,7 @@ metadata:
 
 This skill combines two layers:
 
-1. **Team standard** — where code lives and how it is written. Folder structure, import direction, and the DO/DON'T rules with codes `S1`–`S11` (structure) and `R1`–`R14` (React). Source: `references/code-structure.md`, `references/do.md`, `references/dont.md` (written in Thai).
+1. **Team standard** — where code lives and how it is written. Folder structure, import direction, and the DO/DON'T rules with codes `S1`–`S11` (structure), `R1`–`R14` (React) and `X1`–`X8` (security). Ready-to-copy `assets/eslint.config.js` and `assets/ci.yml` enforce most of them automatically. Source: `references/code-structure.md`, `references/do.md`, `references/dont.md` (written in Thai).
 2. **Vercel performance rules** — 70 rules in 8 categories, prioritized by impact (`async-`, `bundle-`, `server-`, `client-`, `rerender-`, `rendering-`, `js-`, `advanced-`). One file per rule in `rules/`, full compiled guide in `references/vercel-AGENTS.md`.
 
 The team standard decides **structure**; Vercel rules decide **performance**. Where both speak to the same thing, follow the resolutions in "Conflicts and overlaps" below.
@@ -24,6 +24,7 @@ The team standard decides **structure**; Vercel rules decide **performance**. Wh
 2. Check the import direction before adding any import.
 3. Write the code following the DO list. For anything performance-sensitive (data fetching, lists, heavy components, effects), open the matching Vercel rule file in `rules/` and follow its "Correct" example.
 4. Before finishing, scan the output against the DON'T codes and the CRITICAL/HIGH Vercel categories.
+5. When setting up or touching project tooling, use `assets/eslint.config.js` and `assets/ci.yml` as-is (see "Quality gates" below).
 
 ### When reviewing code
 
@@ -43,7 +44,9 @@ Report findings grouped by severity and cite the rule code so the author can loo
 - ...
 ```
 
-Severity mapping: Vercel CRITICAL/HIGH and structure violations S1–S5 → Critical. Vercel MEDIUM and R1–R14 → Should fix. Vercel LOW-MEDIUM/LOW and S6–S11 → Nice to have unless it causes a bug. Match the user's language in the explanation (Thai or English); keep code identifiers and rule codes as-is.
+If a shell is available, run the quality gates before writing the review and include their output: `npm run lint`, `npm run typecheck --if-present`, `npm audit --audit-level=high --omit=dev`. Do not report a gate as passing unless it actually ran.
+
+Severity mapping: security X1–X8, Vercel CRITICAL/HIGH and structure violations S1–S5 → Critical. Vercel MEDIUM and R1–R14 → Should fix. Vercel LOW-MEDIUM/LOW and S6–S11 → Nice to have unless it causes a bug. Match the user's language in the explanation (Thai or English); keep code identifiers and rule codes as-is.
 
 ## Folder structure (feature-based)
 
@@ -105,6 +108,35 @@ Full reasons and examples: `references/dont.md` (DON'T) and `references/do.md` (
 | R12 | `useEffect` ไม่ cleanup | return cleanup |
 | R13 | memo ทุกจุดโดยไม่วัด | profile ก่อน / React Compiler |
 | R14 | index เป็น `key` ใน list ที่เปลี่ยนลำดับ | id ที่ไม่ซ้ำ |
+| X1 | merge เมื่อ `npm audit` เจอ high/critical | `npm audit fix` / อัปเดต package |
+| X2 | secret ใน `VITE_*`/`NEXT_PUBLIC_*`/`REACT_APP_*` | เก็บฝั่ง server |
+| X3 | `dangerouslySetInnerHTML` ไม่ sanitize | DOMPurify |
+| X4 | URL จาก user ลง `href`/`src` ไม่ตรวจ protocol | `safeUrl()` |
+| X5 | `target="_blank"` ไม่มี `rel` | `rel="noreferrer"` |
+| X6 | ไม่ commit lockfile / `npm install` ใน CI | lockfile + `npm ci` |
+| X7 | `eval` / `new Function` | function ปกติ |
+| X8 | token ระยะยาวใน `localStorage` | httpOnly cookie / memory |
+
+## Quality gates (lint + security)
+
+`assets/eslint.config.js` was tested against a sample feature-based project: it reports every seeded S1/S2/S3/S5/R2/R14/X3/X4/X5 violation and passes clean code with zero errors. Install exactly:
+
+```bash
+npm i -D eslint@9 @eslint/js@9 globals eslint-plugin-react eslint-plugin-react-hooks \
+         eslint-plugin-boundaries eslint-import-resolver-typescript
+```
+
+Keep `eslint@9`: `eslint-plugin-react` does not yet support ESLint 10, so an unpinned install fails with ERESOLVE. The config uses the `boundaries/dependencies` rule (eslint-plugin-boundaries v7 syntax); do not switch back to the deprecated `element-types` / `entry-point` rules. It resolves the `@/` alias from `jsconfig.json` or `tsconfig.json`, and its element patterns assume `src/` — adjust them if the project root differs.
+
+| Gate | Command | Enforces |
+| --- | --- | --- |
+| Lint | `npm run lint -- --max-warnings=0` | S1–S3, S5, R2, R14, X3–X5, X7, hooks rules |
+| Types | `npm run typecheck --if-present` | type errors |
+| Dependencies | `npm audit --audit-level=high --omit=dev` | X1 |
+| Client env | grep step in `assets/ci.yml` | X2 |
+| Install | `npm ci` | X6 |
+
+Copy `assets/ci.yml` to `.github/workflows/ci.yml` to run all gates on every PR. X8 and the dynamic part of X4 cannot be linted — check them in review.
 
 ## Vercel rules quick reference
 
@@ -177,7 +209,9 @@ Prefer `items.toSorted(fn)` over `[...items].sort(fn)` when the target supports 
 | --- | --- |
 | `references/code-structure.md` | Placing files, naming, import table, `lib/` facade and path alias examples |
 | `references/do.md` | Writing new code — checklist with examples |
-| `references/dont.md` | Reviewing — full S/R tables with reasons and examples |
+| `references/dont.md` | Reviewing — full S/R/X tables with reasons and examples |
+| `assets/eslint.config.js` | Setting up or fixing lint — copy to project root |
+| `assets/ci.yml` | Setting up CI — copy to `.github/workflows/ci.yml` |
 | `rules/<name>.md` | Any Vercel rule — Incorrect/Correct code and impact |
 | `rules/_sections.md` | Category descriptions and impact levels |
 | `references/vercel-AGENTS.md` | Full Vercel guide in one file (~108 KB) |

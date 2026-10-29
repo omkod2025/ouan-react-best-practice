@@ -2,7 +2,8 @@
 
 Agent skill มาตรฐาน React ของทีม รวมสองส่วนไว้ด้วยกัน
 
-- **โครงสร้างโค้ดและกฎของทีม**: folder structure แบบ feature-based, ทิศทางการ import, รายการ DO และรายการ DON'T ที่มีรหัสอ้างอิง (`S1`–`S11` ด้านโครงสร้าง, `R1`–`R14` ด้าน React)
+- **โครงสร้างโค้ดและกฎของทีม**: folder structure แบบ feature-based, ทิศทางการ import, รายการ DO และรายการ DON'T ที่มีรหัสอ้างอิง (`S1`–`S11` ด้านโครงสร้าง, `R1`–`R14` ด้าน React, `X1`–`X8` ด้าน security)
+- **Lint และ security ที่ทดสอบแล้ว**: `eslint.config.js` ที่บังคับกฎทีมอัตโนมัติ และ GitHub Actions workflow สำหรับ lint, typecheck, test, `npm audit` และตรวจ secret
 - **Vercel React Best Practices**: 70 rules ใน 8 หมวด เรียงตามผลกระทบ (waterfalls, bundle size, server, client fetching, re-render, rendering, JS, advanced)
 
 skill จะทำงานอัตโนมัติเมื่อสั่งเขียน, รีวิว, refactor หรือ scaffold โค้ด React / Next.js / Vite
@@ -70,6 +71,28 @@ refactor หน้า Dashboard นี้ให้โหลดเร็วขึ
 
 ---
 
+## ใช้ ESLint และ CI ของทีมในโปรเจกต์
+
+```bash
+# 1. ติดตั้ง (pin ESLint 9 — eslint-plugin-react ยังไม่รองรับ ESLint 10)
+npm i -D eslint@9 @eslint/js@9 globals eslint-plugin-react eslint-plugin-react-hooks \
+         eslint-plugin-boundaries eslint-import-resolver-typescript
+
+# 2. copy config และ workflow
+curl -fsSL https://raw.githubusercontent.com/omkod2025/ouan-react-best-practice/main/skills/ouan-react-best-practice/assets/eslint.config.js -o eslint.config.js
+mkdir -p .github/workflows
+curl -fsSL https://raw.githubusercontent.com/omkod2025/ouan-react-best-practice/main/skills/ouan-react-best-practice/assets/ci.yml -o .github/workflows/ci.yml
+
+# 3. เพิ่ม scripts
+npm pkg set scripts.lint="eslint src" scripts.lint:fix="eslint src --fix" \
+            scripts.audit="npm audit --audit-level=high --omit=dev"
+
+# 4. รัน
+npm run lint && npm run audit
+```
+
+config ต้องมี path alias `@/*` → `src/*` ใน `jsconfig.json` หรือ `tsconfig.json` (ดู `references/code-structure.md`) ถ้า repo เป็น private ให้ copy ไฟล์จากโฟลเดอร์ที่ clone มาแทน `curl`
+
 ## โครงสร้าง repo
 
 ```text
@@ -81,10 +104,13 @@ refactor หน้า Dashboard นี้ให้โหลดเร็วขึ
     └── ouan-react-best-practice/
         ├── SKILL.md                       # คำสั่งหลัก, สรุป rule, ตารางจับคู่และ conflict
         ├── NOTICE.md                      # แหล่งที่มาและ license
+        ├── assets/
+        │   ├── eslint.config.js           # ESLint 9 + boundaries v7 (ทดสอบแล้ว)
+        │   └── ci.yml                     # GitHub Actions: lint, typecheck, test, audit, secret check
         ├── references/
         │   ├── code-structure.md          # folder tree, import rules, naming
         │   ├── do.md                      # สิ่งที่ต้องทำ
-        │   ├── dont.md                    # กฎข้อห้าม S1–S11, R1–R14
+        │   ├── dont.md                    # กฎข้อห้าม S1–S11, R1–R14, X1–X8
         │   └── vercel-AGENTS.md           # Vercel guide ฉบับรวม
         └── rules/                         # Vercel rule แยกไฟล์ละข้อ (70 ข้อ)
 ```
@@ -93,7 +119,8 @@ refactor หน้า Dashboard นี้ให้โหลดเร็วขึ
 
 1. แก้ไฟล์ใน `skills/ouan-react-best-practice/`
 2. ถ้ามีการเปลี่ยนรหัส rule ใน `references/dont.md` ให้อัปเดตตารางสรุปใน `SKILL.md` ให้ตรงกัน
-3. build ไฟล์ `.skill` ใหม่ (เป็น zip ของโฟลเดอร์ skill):
+3. lint เอกสาร: `npx markdownlint-cli2 "**/*.md"` (ไฟล์ของ Vercel ถูกยกเว้นใน `.markdownlint-cli2.jsonc`)
+4. build ไฟล์ `.skill` ใหม่ (เป็น zip ของโฟลเดอร์ skill):
 
    ```bash
    cd skills && zip -r ../dist/ouan-react-best-practice.skill ouan-react-best-practice -x '*.DS_Store'

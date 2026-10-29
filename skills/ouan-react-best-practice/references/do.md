@@ -100,5 +100,66 @@
 ## เครื่องมือ
 
 - [ ] **ใช้ Vite หรือ framework** (Next.js, React Router) สำหรับโปรเจกต์ใหม่
-- [ ] **บังคับกฎ import ด้วย ESLint** (`eslint-plugin-boundaries` หรือ `import/no-restricted-paths`) ให้ CI ล้มเมื่อ import ผิด layer
 - [ ] **TypeScript:** มี `types.ts` ในแต่ละ feature และ export type ที่ภายนอกใช้ผ่าน `index.ts`
+
+---
+
+## Lint
+
+- [ ] **ติดตั้ง ESLint 9 พร้อม plugin** — pin `eslint@9` ไว้ เพราะ `eslint-plugin-react` ยังไม่รองรับ ESLint 10 (ติดตั้งแบบไม่ระบุเวอร์ชันจะ ERESOLVE)
+
+  ```bash
+  npm i -D eslint@9 @eslint/js@9 globals eslint-plugin-react eslint-plugin-react-hooks \
+           eslint-plugin-boundaries eslint-import-resolver-typescript
+  ```
+
+- [ ] **ใช้ `eslint.config.js` ของทีม** จาก `assets/eslint.config.js` — บังคับ S1, S2, S3, S5 (ทิศทาง import และ feature entry point), R2, R14, X3, X4, X5, X7 และ rules-of-hooks
+- [ ] **เพิ่ม scripts ใน `package.json`**
+
+  ```json
+  {
+    "scripts": {
+      "lint": "eslint src",
+      "lint:fix": "eslint src --fix",
+      "typecheck": "tsc --noEmit",
+      "audit": "npm audit --audit-level=high --omit=dev"
+    }
+  }
+  ```
+
+- [ ] **รัน `npm run lint` ก่อน commit** และให้ CI รันด้วย `--max-warnings=0`
+- [ ] **ตั้ง `react-hooks/exhaustive-deps` เป็น error** แก้ dependency ให้ครบแทนการปิด rule
+
+---
+
+## Security
+
+- [ ] **commit lockfile และใช้ `npm ci` ใน CI** — ติดตั้งตรงตาม lockfile ทุกครั้ง
+- [ ] **รัน `npm audit --audit-level=high --omit=dev`** ใน CI ทุก PR แก้ด้วย `npm audit fix` หรืออัปเดต package ก่อน merge
+- [ ] **เปิด Dependabot หรือ Renovate** ให้เปิด PR อัปเดต dependency อัตโนมัติ
+- [ ] **เก็บ secret ไว้ฝั่ง server เท่านั้น** — ตัวแปร `VITE_*`, `NEXT_PUBLIC_*`, `REACT_APP_*` ถูก bundle ลง JS ที่ทุกคนเปิดอ่านได้ ใส่ได้แค่ค่าสาธารณะ เช่น API URL
+- [ ] **sanitize HTML ก่อนใช้ `dangerouslySetInnerHTML`** ด้วย DOMPurify และใส่ comment อธิบายเมื่อปิด `react/no-danger`
+
+  ```jsx
+  import DOMPurify from 'dompurify';
+  // eslint-disable-next-line react/no-danger -- sanitized with DOMPurify
+  <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(html) }} />
+  ```
+
+- [ ] **ตรวจ protocol ของ URL จาก user** ก่อนใส่ใน `href` หรือ `src`
+
+  ```js
+  // utils/safeUrl.js — pure function, ใช้ได้ทั้ง client และ SSR
+  export const safeUrl = (url) => {
+    try {
+      // relative URL ("/path") resolve เป็น http: จึงผ่าน
+      const { protocol } = new URL(url, 'http://localhost');
+      return ['http:', 'https:', 'mailto:'].includes(protocol) ? url : '#';
+    } catch {
+      return '#';
+    }
+  };
+  ```
+
+- [ ] **ใส่ `rel="noreferrer"` กับลิงก์ `target="_blank"`**
+- [ ] **ใช้ `assets/ci.yml` เป็น GitHub Actions workflow** — รัน lint, typecheck, test, audit และตรวจ secret ใน env ฝั่ง client

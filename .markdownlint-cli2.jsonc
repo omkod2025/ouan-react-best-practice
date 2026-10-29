@@ -1,0 +1,14 @@
+{
+  // Thai prose and wide tables make fixed line length impractical
+  "config": {
+    "default": true,
+    "MD013": false,
+    "MD060": false
+  },
+  // vendored from vercel-labs/agent-skills — kept byte-for-byte, not linted
+  "ignores": [
+    "skills/ouan-react-best-practice/rules/**",
+    "skills/ouan-react-best-practice/references/vercel-AGENTS.md",
+    "node_modules/**"
+  ]
+}
