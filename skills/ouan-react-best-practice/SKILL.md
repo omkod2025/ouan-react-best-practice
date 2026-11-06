@@ -1,9 +1,9 @@
 ---
 name: ouan-react-best-practice
-description: Team React standard that merges our feature-based folder structure, DO/DON'T rules (codes S1-S11, R1-R14, security X1-X8), a tested ESLint + CI setup, and Vercel's 70 React/Next.js performance rules. Use whenever writing, reviewing, refactoring or scaffolding React, Next.js or Vite code — new components, pages, hooks, features, folder layout, imports, data fetching, bundle size, re-renders, ESLint setup, npm audit, XSS or secrets in env, or code review against team rules — even if the user does not mention "best practices". Also use for Thai requests such as "เขียน component", "รีวิวโค้ด React", "จัดโครงสร้างโปรเจกต์", "สร้าง feature ใหม่", "ตั้ง lint", "เช็คช่องโหว่".
+description: Team React standard that merges our feature-based folder structure, DO/DON'T rules (codes S1-S11, R1-R14, security X1-X8), a tested ESLint + CI setup, and Vercel's 70 React/Next.js performance rules. Use whenever writing, reviewing, refactoring or scaffolding React, Next.js or Vite code — new components, pages, hooks, features, folder layout, imports, data fetching, bundle size, re-renders, ESLint setup, pre-commit hooks, npm audit, XSS or secrets in env, or code review against team rules — even if the user does not mention "best practices". Lint is the primary authority: write lint-clean code first, and after every code change run lint + npm audit and fix until both pass. Also use for Thai requests such as "เขียน component", "รีวิวโค้ด React", "จัดโครงสร้างโปรเจกต์", "สร้าง feature ใหม่", "ตั้ง lint", "ตั้ง pre-commit", "เช็คช่องโหว่".
 license: MIT (Vercel rules) + team docs
 metadata:
-  version: "1.0.0"
+  version: "1.1.0"
   sources: "Fireship '10 React Antipatterns', Web Dev Simplified 'React Folder Structure', vercel-labs/agent-skills react-best-practices"
 ---
 
@@ -16,15 +16,61 @@ This skill combines two layers:
 
 The team standard decides **structure**; Vercel rules decide **performance**. Where both speak to the same thing, follow the resolutions in "Conflicts and overlaps" below.
 
+**Lint outranks both.** The project's ESLint config is the final word on how code is written. If a team rule, a Vercel rule or a habit would produce code the linter flags, write it the way the linter accepts. See "Lint first" below.
+
+## Non-negotiable: lint + vulnerability check after every change
+
+These rules apply to every task that edits code, whatever its size, including one-line fixes:
+
+1. **Make sure a pre-commit hook exists.** If the project has no hook that runs lint and `npm audit`, set one up before or alongside the first change (see "Pre-commit hook" below). If a hook exists but skips either check, add the missing one.
+2. **After every code edit, run both gates yourself.** Don't wait for the commit:
+
+   ```bash
+   npm run lint -- --max-warnings=0
+   npm audit --audit-level=high --omit=dev
+   ```
+
+   Use the project's own script names if they differ, for example `npm run audit`. With several edits in one task, run the gates after the batch and again before you report the work as done.
+3. **If either gate fails, fix it and run it again until it passes.** Never finish a task with a failing gate.
+   - Lint: fix the code itself. Don't add `eslint-disable`, don't turn the rule off, don't raise `--max-warnings`, don't add files to `ignores`. A disable is acceptable only when the rule is provably wrong for that line: it needs a comment saying why, and you must tell the user.
+   - Audit: run `npm audit fix` first. If that doesn't clear it, update the direct dependency that pulls the vulnerable package in, or pin a fixed version through `overrides` in `package.json`. Ask the user before `npm audit fix --force` or a major-version bump, because both can break the app. If no fixed version exists anywhere, stop and report the advisory ID to the user. Don't lower `--audit-level`.
+   - Never commit with `--no-verify` to get past the hook.
+4. **Report honestly.** State which gates ran and that they passed, or paste the remaining output. Don't claim a gate passed unless it actually ran.
+
+## Lint first
+
+Write the code the linter wants from the first line, so the gates rarely fail:
+
+1. **Read the project's ESLint config before writing** (`eslint.config.*`, plus the plugins and presets it extends, such as `next/core-web-vitals`, `typescript-eslint` or `react-hooks` recommended). It tells you which rules are on.
+2. **Match lint-clean code already in the repo.** Copy the patterns of nearby files that pass lint.
+3. **When a best-practice rule and a lint rule disagree, follow lint.** For example, if the React Compiler rules (`react-hooks/preserve-manual-memoization`) object to a manual `useMemo` that R3 or `rerender-memo` would suggest, drop the memo or restructure the code.
+4. **Run lint on the file as soon as you finish it** (`npx eslint <file>`). Don't let errors pile up across many files before checking.
+
+The usual traps, and how to write code that passes:
+
+| Rule | Write it this way |
+| --- | --- |
+| `react-hooks/exhaustive-deps` | List every value the effect reads. If a dependency should not retrigger the effect, move the logic into an event handler, or use a ref or `useEffectEvent`. Never just leave the dependency out. |
+| `react-hooks/set-state-in-effect` | Don't sync state in an effect. Derive the value during render, or set it in the event that caused the change (`rerender-derived-state-no-effect`). |
+| `react-hooks/refs` | Don't read or write `ref.current` during render, only in effects and handlers. |
+| `react-hooks/purity` | No `Date.now()`, `Math.random()` or other impure calls during render. Use lazy `useState(() => …)`, or do them in an effect or handler. |
+| `react-hooks/immutability` / R4 | Never mutate props, state or hook return values. Copy them, or use `toSorted()` / `toSpliced()` / `with()`. |
+| `react-hooks/static-components` / R2 | Never declare a component inside another component. |
+| `@typescript-eslint/no-unused-vars` | Delete what you don't use. Don't leave it in prefixed with `_` unless the config allows that. |
+| `@typescript-eslint/no-explicit-any` | Use `unknown` and narrow it, or write the real type. |
+| `react/no-array-index-key` / R14 | Use a stable id as the key. |
+| `@next/next/no-img-element`, `no-html-link-for-pages` | Use `next/image` and `next/link`. |
+
 ## How to apply
 
 ### When writing or scaffolding code
 
 1. Place every file according to the folder tree below. If unsure where something goes, read `references/code-structure.md`.
 2. Check the import direction before adding any import.
-3. Write the code following the DO list. For anything performance-sensitive (data fetching, lists, heavy components, effects), open the matching Vercel rule file in `rules/` and follow its "Correct" example.
+3. Write the code following "Lint first" and the DO list. For anything performance-sensitive (data fetching, lists, heavy components, effects), open the matching Vercel rule file in `rules/` and follow its "Correct" example, adjusting it if the project's lint rejects it.
 4. Before finishing, scan the output against the DON'T codes and the CRITICAL/HIGH Vercel categories.
-5. When setting up or touching project tooling, use `assets/eslint.config.js` and `assets/ci.yml` as-is (see "Quality gates" below).
+5. **Run lint + audit and fix until both pass** (see "Non-negotiable" above).
+6. When setting up or touching project tooling, use `assets/eslint.config.js`, `assets/pre-commit` and `assets/ci.yml` as-is (see "Quality gates" below).
 
 ### When reviewing code
 
@@ -138,6 +184,32 @@ Keep `eslint@9`: `eslint-plugin-react` does not yet support ESLint 10, so an unp
 
 Copy `assets/ci.yml` to `.github/workflows/ci.yml` to run all gates on every PR. X8 and the dynamic part of X4 cannot be linted — check them in review.
 
+### Pre-commit hook
+
+Every project gets a pre-commit hook that runs lint and the vulnerability check, so nothing that fails either one is committed. If the project already has Husky, extend its hook instead of replacing it. Install:
+
+```bash
+npm i -D husky lint-staged
+npx husky init                       # creates .husky/ and adds "prepare": "husky"
+cp <skill>/assets/pre-commit .husky/pre-commit
+```
+
+Add to `package.json`:
+
+```json
+{
+  "scripts": {
+    "lint": "eslint .",
+    "audit": "npm audit --audit-level=high --omit=dev"
+  },
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx,mjs,cjs}": "eslint --max-warnings=0 --no-warn-ignored"
+  }
+}
+```
+
+The hook lints only the staged files, for speed, and audits the whole dependency tree. The full `npm run lint` still runs after each change (see "Non-negotiable" above) and in CI. Once the hook is installed, test it: stage a file with a deliberate lint error and confirm the commit is blocked.
+
 ## Vercel rules quick reference
 
 Read the individual file in `rules/<rule-name>.md` for explanation and Incorrect/Correct examples. For everything at once: `references/vercel-AGENTS.md` (large — prefer single rule files).
@@ -212,6 +284,7 @@ Prefer `items.toSorted(fn)` over `[...items].sort(fn)` when the target supports 
 | `references/dont.md` | Reviewing — full S/R/X tables with reasons and examples |
 | `assets/eslint.config.js` | Setting up or fixing lint — copy to project root |
 | `assets/ci.yml` | Setting up CI — copy to `.github/workflows/ci.yml` |
+| `assets/pre-commit` | Setting up the hook — copy to `.husky/pre-commit` |
 | `rules/<name>.md` | Any Vercel rule — Incorrect/Correct code and impact |
 | `rules/_sections.md` | Category descriptions and impact levels |
 | `references/vercel-AGENTS.md` | Full Vercel guide in one file (~108 KB) |

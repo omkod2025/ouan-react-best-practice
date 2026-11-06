@@ -3,7 +3,8 @@
 Agent skill มาตรฐาน React ของทีม รวมสองส่วนไว้ด้วยกัน
 
 - **โครงสร้างโค้ดและกฎของทีม**: folder structure แบบ feature-based, ทิศทางการ import, รายการ DO และรายการ DON'T ที่มีรหัสอ้างอิง (`S1`–`S11` ด้านโครงสร้าง, `R1`–`R14` ด้าน React, `X1`–`X8` ด้าน security)
-- **Lint และ security ที่ทดสอบแล้ว**: `eslint.config.js` ที่บังคับกฎทีมอัตโนมัติ และ GitHub Actions workflow สำหรับ lint, typecheck, test, `npm audit` และตรวจ secret
+- **Lint และ security ที่ทดสอบแล้ว**: `eslint.config.js` ที่บังคับกฎทีมอัตโนมัติ, pre-commit hook ที่รัน lint + `npm audit` และ GitHub Actions workflow สำหรับ lint, typecheck, test, `npm audit` และตรวจ secret
+- **ยึด lint เป็นหลัก**: เขียนโค้ดให้ผ่าน lint ตั้งแต่แรก และหลังแก้โค้ดทุกครั้ง agent ต้องรัน lint + `npm audit` เอง ถ้าไม่ผ่านต้องแก้จนผ่าน
 - **Vercel React Best Practices**: 70 rules ใน 8 หมวด เรียงตามผลกระทบ (waterfalls, bundle size, server, client fetching, re-render, rendering, JS, advanced)
 
 skill จะทำงานอัตโนมัติเมื่อสั่งเขียน, รีวิว, refactor หรือ scaffold โค้ด React / Next.js / Vite
@@ -91,6 +92,17 @@ npm pkg set scripts.lint="eslint src" scripts.lint:fix="eslint src --fix" \
 npm run lint && npm run audit
 ```
 
+### Pre-commit: lint + ช่องโหว่ก่อน commit ทุกครั้ง
+
+```bash
+npm i -D husky lint-staged
+npx husky init
+curl -fsSL https://raw.githubusercontent.com/omkod2025/ouan-react-best-practice/main/skills/ouan-react-best-practice/assets/pre-commit -o .husky/pre-commit
+npm pkg set 'lint-staged[*.{js,jsx,ts,tsx,mjs,cjs}]=eslint --max-warnings=0 --no-warn-ignored'
+```
+
+hook จะ lint เฉพาะไฟล์ที่ stage ไว้ และรัน `npm audit --audit-level=high --omit=dev` ถ้าไม่ผ่านตัวใดตัวหนึ่ง commit จะถูกบล็อก
+
 config ต้องมี path alias `@/*` → `src/*` ใน `jsconfig.json` หรือ `tsconfig.json` (ดู `references/code-structure.md`) ถ้า repo เป็น private ให้ copy ไฟล์จากโฟลเดอร์ที่ clone มาแทน `curl`
 
 ## โครงสร้าง repo
@@ -106,7 +118,8 @@ config ต้องมี path alias `@/*` → `src/*` ใน `jsconfig.json` �
         ├── NOTICE.md                      # แหล่งที่มาและ license
         ├── assets/
         │   ├── eslint.config.js           # ESLint 9 + boundaries v7 (ทดสอบแล้ว)
-        │   └── ci.yml                     # GitHub Actions: lint, typecheck, test, audit, secret check
+        │   ├── ci.yml                     # GitHub Actions: lint, typecheck, test, audit, secret check
+        │   └── pre-commit                 # Husky hook: lint-staged + npm audit
         ├── references/
         │   ├── code-structure.md          # folder tree, import rules, naming
         │   ├── do.md                      # สิ่งที่ต้องทำ

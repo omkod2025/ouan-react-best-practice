@@ -1,0 +1,9 @@
+# .husky/pre-commit — lint + vulnerability gate on every commit
+# Setup: npm i -D husky lint-staged && npx husky init, then replace .husky/pre-commit with this file.
+# Requires "lint-staged" config in package.json (see SKILL.md "Pre-commit hook").
+
+# Lint: staged files only, zero warnings allowed
+npx lint-staged
+
+# X1: block the commit on high/critical vulnerabilities in production dependencies
+npm audit --audit-level=high --omit=dev
